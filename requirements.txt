@@ -1,0 +1,4 @@
+Flask>=3.0,<4.0
+requests>=2.31
+mutagen>=1.47
+sanitize-filename>=1.2.0

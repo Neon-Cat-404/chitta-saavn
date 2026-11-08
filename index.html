@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#131313">
+  <title>Sonic Pulse — Music</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#131313",
+            surface: "#131313",
+            "surface-lowest": "#0e0e0e",
+            "surface-low": "#1c1b1b",
+            "surface-container": "#201f1f",
+            "surface-high": "#2a2a2a",
+            "surface-highest": "#353534",
+            primary: "#53e076",
+            "primary-container": "#1db954",
+            "on-surface": "#e5e2e1",
+            "on-surface-variant": "#bccbb9",
+            outline: "#869585"
+          },
+          fontFamily: { jakarta: ["Plus Jakarta Sans", "sans-serif"] }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #0e0e0e; }
+    body { font-family: "Plus Jakarta Sans", sans-serif; color: #e5e2e1; }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-thumb { background: #353534; border-radius: 20px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    button, input { font: inherit; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #53e076; outline-offset: 2px; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .nav-link.active { color: #e5e2e1; background: #353534; }
+    .nav-link.active .material-symbols-outlined { color: #53e076; }
+    .song-row:hover .song-actions { opacity: 1; }
+    .song-actions { opacity: .75; }
+    .cover-placeholder { background: linear-gradient(135deg, #263b2c, #17231b 60%, #353534); }
+    .range { accent-color: #53e076; cursor: pointer; }
+    .line-clamp-1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @media (max-width: 900px) {
+      #sidebar { width: 76px; padding: 12px 8px; }
+      #sidebar .sidebar-label, #sidebar .sidebar-subtitle, #sidebar .quick-add,
+      #sidebar .brand-name { display: none; }
+      #sidebar .nav-link { justify-content: center; padding: 13px 0; }
+      #sidebar .nav-link .material-symbols-outlined { font-size: 25px; }
+      #app-shell { margin-left: 76px; }
+      #topbar { left: 76px; }
+      #sidebar .brand { justify-content: center; }
+    }
+    @media (max-width: 640px) {
+      #sidebar { display: none; }
+      #app-shell { margin-left: 0; }
+      #topbar { left: 0; padding: 0 12px; }
+      #topbar .top-extra { display: none; }
+      #player { padding: 10px 12px; height: 76px; }
+      #player .player-extra, #player .player-progress-label { display: none; }
+      #player .player-main { width: auto; flex: 1; }
+      #player .player-controls { width: auto; }
+      main { padding-left: 16px !important; padding-right: 16px !important; }
+    }
+  </style>
+</head>
+
+<body class="bg-surface-lowest text-on-surface">
+  <!-- LEFT SIDEBAR -->
+  <aside id="sidebar" class="fixed left-0 top-0 bottom-[88px] z-40 flex w-72 flex-col gap-3 p-3">
+    <section class="rounded-2xl bg-surface-low p-4">
+      <div class="brand mb-5 flex items-center gap-3 px-1">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-container text-black">
+          <span class="material-symbols-outlined">graphic_eq</span>
+        </div>
+        <span class="brand-name text-lg font-extrabold tracking-tight">Sonic Pulse</span>
+      </div>
+
+      <nav class="flex flex-col gap-1" aria-label="Main navigation">
+        <button class="nav-link active flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-on-surface-variant transition hover:bg-surface-high" data-page="home">
+          <span class="material-symbols-outlined">home</span>
+          <span class="sidebar-label">Home</span>
+        </button>
+        <button class="nav-link flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-semibold text-on-surface-variant transition hover:bg-surface-high" data-page="search">
+          <span class="material-symbols-outlined">search</span>
+          <span class="sidebar-label">Search</span>
+        </button>
+      </nav>
+    </section>
+
+    <section class="flex min-h-0 flex-1 flex-col rounded-2xl bg-surface-low p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary">library_music</span>
+          <span class="sidebar-label text-sm font-bold">Your Library</span>
+        </div>
+        <button id="refresh-library" class="rounded-lg p-1 text-on-surface-variant hover:bg-surface-high hover:text-primary" title="Refresh library">
+          <span class="material-symbols-outlined text-lg">refresh</span>
+        </button>
+      </div>
+      <p class="sidebar-subtitle mb-3 text-xs text-on-surface-variant">Songs saved in Downloads</p>
+
+      <div class="quick-add mb-3 rounded-xl bg-surface-container p-3">
+        <div class="mb-2 text-xs font-bold">Quick search</div>
+        <div class="flex gap-1">
+          <input id="sidebar-search" class="min-w-0 w-full rounded-lg bg-surface-high px-2 py-2 text-xs outline-none placeholder:text-on-surface-variant" placeholder="Song or artist">
+          <button id="sidebar-search-btn" class="rounded-lg bg-primary-container px-2 text-black" title="Search">
+            <span class="material-symbols-outlined text-lg">search</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="sidebar-library" class="min-h-0 flex-1 space-y-1 overflow-y-auto">
+        <div class="px-2 py-4 text-xs text-on-surface-variant">Loading your music…</div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- APP AREA -->
+  <div id="app-shell" class="ml-72">
+    <header id="topbar" class="fixed left-72 right-0 top-0 z-30 flex h-16 items-center justify-between border-b border-white/5 bg-[#1c1b1b]/90 px-6 backdrop-blur-xl">
+      <div class="flex min-w-0 flex-1 items-center gap-4">
+        <div class="hidden items-center gap-1 sm:flex">
+          <button id="go-back" class="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-high hover:text-white" title="Back">
+            <span class="material-symbols-outlined">chevron_left</span>
+          </button>
+          <button id="go-forward" class="rounded-full p-1.5 text-on-surface-variant hover:bg-surface-high hover:text-white" title="Forward">
+            <span class="material-symbols-outlined">chevron_right</span>
+          </button>
+        </div>
+        <form id="search-form" class="relative flex w-full max-w-xl items-center">
+          <span class="material-symbols-outlined pointer-events-none absolute left-3 text-xl text-on-surface-variant">search</span>
+          <input id="search-input" class="h-10 w-full rounded-full border border-transparent bg-surface-high pl-10 pr-24 text-sm text-white outline-none transition placeholder:text-on-surface-variant focus:border-primary/50 focus:bg-surface-highest" placeholder="What do you want to play?" autocomplete="off">
+          <button id="clear-search" type="button" class="absolute right-3 hidden text-on-surface-variant hover:text-white" title="Clear search">
+            <span class="material-symbols-outlined text-lg">close</span>
+          </button>
+          <span class="absolute right-9 hidden rounded bg-surface-container px-1.5 py-0.5 text-[10px] text-on-surface-variant md:block">Enter</span>
+        </form>
+      </div>
+      <div class="top-extra ml-4 flex items-center gap-3">
+        <span class="hidden text-xs text-on-surface-variant lg:inline">LOCAL MUSIC PLAYER</span>
+        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-surface-high text-primary">
+          <span class="material-symbols-outlined">person</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="min-h-screen px-7 pb-32 pt-20">
+      <!-- HOME PAGE -->
+      <section id="home-page" class="page active">
+        <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p class="mb-2 text-xs font-bold uppercase tracking-[.2em] text-primary">Your collection</p>
+            <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">Your Downloads</h1>
+            <p class="mt-2 text-sm text-on-surface-variant">Music stored in your local Downloads folder.</p>
+          </div>
+          <button id="home-refresh" class="flex items-center gap-2 rounded-full bg-surface-high px-4 py-2 text-xs font-bold hover:bg-surface-highest">
+            <span class="material-symbols-outlined text-base">refresh</span> Refresh
+          </button>
+        </div>
+
+        <div class="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="rounded-2xl bg-surface-low p-4">
+            <div class="mb-1 text-xs text-on-surface-variant">Downloaded songs</div>
+            <div id="library-count" class="text-2xl font-extrabold">—</div>
+          </div>
+          <div class="rounded-2xl bg-surface-low p-4">
+            <div class="mb-1 text-xs text-on-surface-variant">Library status</div>
+            <div id="library-status" class="text-sm font-bold text-primary">Connecting…</div>
+          </div>
+          <div class="rounded-2xl bg-surface-low p-4">
+            <div class="mb-1 text-xs text-on-surface-variant">Storage location</div>
+            <div class="truncate text-sm font-bold">Downloads/</div>
+          </div>
+        </div>
+
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-xl font-bold">All songs</h2>
+          <span id="library-subcount" class="text-xs text-on-surface-variant"></span>
+        </div>
+        <div id="library-grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div class="col-span-full rounded-2xl border border-dashed border-white/10 px-6 py-12 text-center text-sm text-on-surface-variant">
+            Loading your Downloads folder…
+          </div>
+        </div>
+      </section>
+
+      <!-- SEARCH PAGE -->
+      <section id="search-page" class="page">
+        <div class="mb-7">
+          <p class="mb-2 text-xs font-bold uppercase tracking-[.2em] text-primary">Discover music</p>
+          <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">Search</h1>
+          <p class="mt-2 text-sm text-on-surface-variant">Find songs on JioSaavn and preview them before downloading.</p>
+        </div>
+
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="search-heading" class="text-lg font-bold">Search JioSaavn</h2>
+          <span id="search-count" class="text-xs text-on-surface-variant"></span>
+        </div>
+
+        <div id="search-message" class="rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
+          <span class="material-symbols-outlined mb-3 text-4xl text-on-surface-variant">travel_explore</span>
+          <p class="font-semibold">Search for a song, artist or album</p>
+          <p class="mt-1 text-xs text-on-surface-variant">Use the search bar above to get started.</p>
+        </div>
+        <div id="search-results" class="space-y-2"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- FIXED BOTTOM PLAYER -->
+  <footer id="player" class="fixed bottom-0 left-0 right-0 z-50 flex h-[88px] items-center justify-between gap-4 border-t border-white/5 bg-[#0e0e0e]/95 px-5 backdrop-blur-xl">
+    <div class="player-main flex w-[30%] min-w-0 items-center gap-3">
+      <div id="player-art-wrap" class="cover-placeholder flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl">
+        <img id="player-art" class="hidden h-full w-full object-cover" alt="Current song artwork">
+        <span id="player-art-icon" class="material-symbols-outlined text-2xl text-primary">music_note</span>
+      </div>
+      <div class="min-w-0">
+        <div id="player-title" class="line-clamp-1 text-sm font-bold">Nothing playing</div>
+        <div id="player-artist" class="line-clamp-1 text-xs text-on-surface-variant">Choose a song from your library</div>
+      </div>
+    </div>
+
+    <div class="player-controls flex w-[40%] max-w-2xl flex-col items-center gap-1">
+      <div class="flex items-center gap-5">
+        <button id="prev-btn" class="text-on-surface-variant hover:text-white" title="Previous"><span class="material-symbols-outlined">skip_previous</span></button>
+        <button id="play-pause-btn" class="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-black transition hover:scale-105" title="Play">
+          <span id="play-pause-icon" class="material-symbols-outlined">play_arrow</span>
+        </button>
+        <button id="next-btn" class="text-on-surface-variant hover:text-white" title="Next"><span class="material-symbols-outlined">skip_next</span></button>
+      </div>
+      <div class="flex w-full items-center gap-2">
+        <span id="current-time" class="player-progress-label w-9 text-right text-[10px] text-on-surface-variant">0:00</span>
+        <input id="seek-bar" class="range h-1 w-full" type="range" min="0" max="100" value="0">
+        <span id="duration" class="player-progress-label w-9 text-[10px] text-on-surface-variant">0:00</span>
+      </div>
+    </div>
+
+    <div class="player-extra flex w-[30%] items-center justify-end gap-3">
+      <span class="material-symbols-outlined text-on-surface-variant">volume_up</span>
+      <input id="volume-bar" class="range w-24" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
+    </div>
+  </footer>
+
+  <audio id="audio-element" preload="metadata"></audio>
+
+  <div id="toast" class="pointer-events-none fixed bottom-24 left-1/2 z-[70] hidden -translate-x-1/2 rounded-full bg-surface-highest px-5 py-3 text-sm font-semibold shadow-xl"></div>
+
+  <script>
+    // ------------------------------------------------------------
+    // CONFIGURATION
+    // The search endpoint is called by the browser for this starter.
+    // Later, it can be moved behind Flask if you prefer a same-origin API.
+    // ------------------------------------------------------------
+    const SEARCH_API = "/api/search?q=";
+
+    const audio = document.getElementById("audio-element");
+    const searchInput = document.getElementById("search-input");
+    const searchForm = document.getElementById("search-form");
+    const searchResults = document.getElementById("search-results");
+    const searchMessage = document.getElementById("search-message");
+
+    let library = [];
+    let currentQueue = [];
+    let currentIndex = -1;
+    let toastTimer;
+
+    const $ = (id) => document.getElementById(id);
+
+    function escapeHtml(value = "") {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      })[char]);
+    }
+
+    function formatTime(seconds) {
+      if (!Number.isFinite(seconds)) return "0:00";
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return `${mins}:${secs}`;
+    }
+
+    function showToast(message) {
+      const toast = $("toast");
+      toast.textContent = message;
+      toast.classList.remove("hidden");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add("hidden"), 2600);
+    }
+
+    function setPage(page) {
+      document.querySelectorAll(".page").forEach(section => section.classList.remove("active"));
+      $(`${page}-page`).classList.add("active");
+      document.querySelectorAll(".nav-link").forEach(button => {
+        button.classList.toggle("active", button.dataset.page === page);
+      });
+      if (page === "search") searchInput.focus();
+    }
+
+    document.querySelectorAll(".nav-link").forEach(button => {
+      button.addEventListener("click", () => setPage(button.dataset.page));
+    });
+
+    $("sidebar-search-btn").addEventListener("click", () => runSearch($("sidebar-search").value));
+    $("sidebar-search").addEventListener("keydown", event => {
+      if (event.key === "Enter") runSearch(event.target.value);
+    });
+
+    searchForm.addEventListener("submit", event => {
+      event.preventDefault();
+      runSearch(searchInput.value);
+    });
+
+    searchInput.addEventListener("input", () => {
+      $("clear-search").classList.toggle("hidden", !searchInput.value);
+    });
+
+    $("clear-search").addEventListener("click", () => {
+      searchInput.value = "";
+      $("clear-search").classList.add("hidden");
+      searchInput.focus();
+    });
+
+    $("go-back").addEventListener("click", () => history.back());
+    $("go-forward").addEventListener("click", () => history.forward());
+
+    // ------------------------------------------------------------
+    // SEARCH
+    // The requested filter is /songs/ (plural).
+    // Preview URL field names vary between API implementations, so
+    // preview extraction is deliberately tolerant.
+    // ------------------------------------------------------------
+    function getPreviewUrl(song) {
+      return song.previewUrl || song.preview_url || song.media_url ||
+             song.downloadUrl?.[0]?.url || song.download_url || "";
+    }
+
+    function getArtwork(song) {
+      if (typeof song.image === "string") return song.image;
+      if (Array.isArray(song.image) && song.image.length) {
+        return song.image.find(item => item.quality === "500x500")?.url ||
+               song.image[song.image.length - 1]?.url ||
+               song.image[0]?.url || "";
+      }
+      return song.artwork || song.thumbnail || "";
+    }
+
+    function getArtist(song) {
+      return song.primaryArtists || song.singers || song.artist || "Unknown artist";
+    }
+
+    async function runSearch(query) {
+      query = String(query || "").trim();
+      if (!query) {
+        showToast("Enter a song or artist to search.");
+        return;
+      }
+
+      setPage("search");
+      searchInput.value = query;
+      $("clear-search").classList.remove("hidden");
+      $("search-heading").textContent = `Results for “${query}”`;
+      $("search-count").textContent = "";
+      searchResults.innerHTML = "";
+      searchMessage.classList.remove("hidden");
+      searchMessage.innerHTML = `
+        <span class="material-symbols-outlined mb-3 animate-pulse text-4xl text-primary">hourglass_top</span>
+        <p class="font-semibold">Searching JioSaavn…</p>
+        <p class="mt-1 text-xs text-on-surface-variant">Looking for matching tracks.</p>`;
+
+      try {
+        const response = await fetch(SEARCH_API + encodeURIComponent(query));
+        if (!response.ok) throw new Error(`Search request failed (${response.status})`);
+        const payload = await response.json();
+        if (!payload.success) throw new Error("The search API did not return success.");
+
+        const data = payload.data || {};
+        const topResults = data.topQuery?.results || [];
+        const songResults = data.songs?.results || [];
+        const combined = [...topResults, ...songResults];
+
+        // Keep only song entries whose URL contains /song/ (plural).
+        const filtered = combined.filter(song =>
+          song.type === "song" && typeof song.url === "string" && song.url.includes("/song/")
+        );
+
+        // Remove duplicates by song ID or URL.
+        const unique = [...new Map(filtered.map(song => [song.id || song.url, song])).values()];
+
+        searchMessage.classList.add("hidden");
+        $("search-count").textContent = `${unique.length} songs`;
+
+        if (!unique.length) {
+          searchMessage.classList.remove("hidden");
+          searchMessage.innerHTML = `
+            <span class="material-symbols-outlined mb-3 text-4xl text-on-surface-variant">music_off</span>
+            <p class="font-semibold">No matching /songs/ results found</p>
+            <p class="mt-1 text-xs text-on-surface-variant">Check the API's returned URL format or try another query.</p>`;
+          return;
+        }
+
+        searchResults.innerHTML = unique.map((song, index) => {
+          const image = getArtwork(song);
+          const preview = getPreviewUrl(song);
+          return `
+            <article class="song-row flex items-center gap-3 rounded-xl p-3 transition hover:bg-surface-low" data-search-index="${index}">
+              <div class="cover-placeholder h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                ${image ? `<img src="${escapeHtml(image)}" alt="" class="h-full w-full object-cover" loading="lazy">` : `<div class="flex h-full items-center justify-center"><span class="material-symbols-outlined text-primary">music_note</span></div>`}
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="line-clamp-1 text-sm font-bold">${escapeHtml(song.title || "Untitled")}</div>
+                <div class="line-clamp-1 mt-1 text-xs text-on-surface-variant">${escapeHtml(getArtist(song))}${song.album ? " · " + escapeHtml(song.album) : ""}</div>
+              </div>
+              <div class="song-actions flex shrink-0 items-center gap-2">
+                <button class="preview-btn flex h-9 items-center gap-1 rounded-full px-3 text-xs font-bold ${preview ? "bg-surface-high hover:bg-surface-highest" : "bg-surface-high text-on-surface-variant"}" data-index="${index}" ${preview ? "" : "disabled"} title="${preview ? "Play preview" : "Preview URL not supplied by API"}">
+                  <span class="material-symbols-outlined text-base">play_arrow</span><span class="hidden sm:inline">Preview</span>
+                </button>
+                <button class="download-btn flex h-9 items-center gap-1 rounded-full bg-primary-container px-3 text-xs font-bold text-black hover:brightness-110" data-index="${index}">
+                  <span class="material-symbols-outlined text-base">download</span><span class="hidden sm:inline">Download</span>
+                </button>
+              </div>
+            </article>`;
+        }).join("");
+
+        // Keep the current search results available to click handlers.
+        window.currentSearchResults = unique;
+      } catch (error) {
+        searchMessage.classList.remove("hidden");
+        searchMessage.innerHTML = `
+          <span class="material-symbols-outlined mb-3 text-4xl text-red-300">error</span>
+          <p class="font-semibold">Search failed</p>
+          <p class="mt-1 text-xs text-on-surface-variant">${escapeHtml(error.message)}</p>`;
+      }
+    }
+
+    searchResults.addEventListener("click", event => {
+      const previewButton = event.target.closest(".preview-btn");
+      const downloadButton = event.target.closest(".download-btn");
+
+      if (previewButton) {
+        const song = window.currentSearchResults?.[Number(previewButton.dataset.index)];
+        if (song) playSearchPreview(song);
+      }
+      if (downloadButton) {
+        const song = window.currentSearchResults?.[Number(downloadButton.dataset.index)];
+        if (song) downloadSong(song, downloadButton);
+      }
+    });
+
+    function playSearchPreview(song) {
+      const previewUrl = getPreviewUrl(song);
+      if (!previewUrl) {
+        showToast("No preview URL was found in this API result.");
+        return;
+      }
+      currentQueue = [song];
+      currentIndex = 0;
+      setPlayerDetails(song);
+      audio.src = previewUrl;
+      audio.play().catch(() => showToast("Preview could not be played. Check the preview URL."));
+    }
+
+    // ------------------------------------------------------------
+    // DOWNLOAD
+    // Flask endpoint to be implemented in app.py.
+    // Sends the original JioSaavn song URL to the Python backend.
+    // ------------------------------------------------------------
+    async function downloadSong(song, button) {
+      const originalText = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = `<span class="material-symbols-outlined animate-spin text-base">progress_activity</span><span>Sending…</span>`;
+      try {
+        const response = await fetch("/api/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: song.url })
+        });
+        const result = await response.json();
+        if (!response.ok || result.success === false) {
+          throw new Error(result.error || "Download request failed.");
+        }
+        showToast(result.message || "Download started.");
+        button.innerHTML = `<span class="material-symbols-outlined text-base">check</span><span>Queued</span>`;
+        // Refresh the local library after the backend has had time to finish.
+        setTimeout(loadLibrary, 2500);
+      } catch (error) {
+        showToast(error.message.includes("Failed to fetch") ? "Flask backend is not running yet." : error.message);
+        button.innerHTML = originalText;
+        button.disabled = false;
+      }
+    }
+
+    // ------------------------------------------------------------
+    // LOCAL LIBRARY
+    // Flask should return: { success: true, songs: [{title, artist,
+    // album, artwork, url/path, duration}] }
+    // ------------------------------------------------------------
+    async function loadLibrary() {
+      $("library-status").textContent = "Connecting…";
+      try {
+        const response = await fetch("/api/library");
+        if (!response.ok) throw new Error("Library endpoint unavailable");
+        const payload = await response.json();
+        library = payload.songs || payload.data || [];
+        renderLibrary();
+        $("library-status").textContent = "Connected";
+        $("library-status").classList.remove("text-red-300");
+        $("library-status").classList.add("text-primary");
+      } catch (error) {
+        library = [];
+        renderLibrary();
+        $("library-status").textContent = "Backend not connected";
+        $("library-status").classList.remove("text-primary");
+        $("library-status").classList.add("text-red-300");
+      }
+    }
+
+    function renderLibrary() {
+      $("library-count").textContent = library.length;
+      $("library-subcount").textContent = `${library.length} tracks`;
+
+      if (!library.length) {
+        $("library-grid").innerHTML = `
+          <div class="col-span-full rounded-2xl border border-dashed border-white/10 px-6 py-12 text-center">
+            <span class="material-symbols-outlined mb-3 text-4xl text-on-surface-variant">library_music</span>
+            <p class="font-semibold">Your library is empty</p>
+            <p class="mt-1 text-xs text-on-surface-variant">Search for music and download a song to see it here.</p>
+            <button onclick="setPage('search')" class="mt-4 rounded-full bg-primary-container px-4 py-2 text-xs font-bold text-black">Find music</button>
+          </div>`;
+        $("sidebar-library").innerHTML = `<p class="px-2 py-3 text-xs text-on-surface-variant">No downloaded songs yet.</p>`;
+        return;
+      }
+
+      $("library-grid").innerHTML = library.map((song, index) => {
+        const title = song.title || song.name || song.filename || "Unknown title";
+        const artist = song.artist || song.primaryArtists || "Unknown artist";
+        const artwork = song.artwork || song.image || "";
+        return `
+          <button class="library-card group rounded-2xl bg-surface-low p-3 text-left transition hover:bg-surface-high" data-library-index="${index}">
+            <div class="cover-placeholder relative mb-3 aspect-square overflow-hidden rounded-xl">
+              ${artwork ? `<img src="${escapeHtml(artwork)}" alt="" class="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy">` : `<div class="flex h-full items-center justify-center"><span class="material-symbols-outlined text-5xl text-primary">album</span></div>`}
+              <span class="absolute bottom-2 right-2 flex h-10 w-10 translate-y-2 items-center justify-center rounded-full bg-primary text-black opacity-0 shadow-xl transition group-hover:translate-y-0 group-hover:opacity-100"><span class="material-symbols-outlined">play_arrow</span></span>
+            </div>
+            <div class="line-clamp-1 text-sm font-bold">${escapeHtml(title)}</div>
+            <div class="line-clamp-1 mt-1 text-xs text-on-surface-variant">${escapeHtml(artist)}</div>
+          </button>`;
+      }).join("");
+
+      $("sidebar-library").innerHTML = library.slice(0, 40).map((song, index) => `
+        <button class="sidebar-song flex w-full items-center gap-2 rounded-lg p-2 text-left hover:bg-surface-high" data-library-index="${index}">
+          <span class="material-symbols-outlined text-lg text-primary">music_note</span>
+          <span class="sidebar-label line-clamp-1 text-xs">${escapeHtml(song.title || song.name || song.filename || "Unknown title")}</span>
+        </button>`).join("");
+    }
+
+    $("library-grid").addEventListener("click", event => {
+      const card = event.target.closest("[data-library-index]");
+      if (card) playLibrarySong(Number(card.dataset.libraryIndex));
+    });
+    $("sidebar-library").addEventListener("click", event => {
+      const row = event.target.closest("[data-library-index]");
+      if (row) playLibrarySong(Number(row.dataset.libraryIndex));
+    });
+
+    function playLibrarySong(index) {
+      const song = library[index];
+      if (!song) return;
+      currentQueue = library;
+      currentIndex = index;
+      const audioUrl = song.audio_url || song.audioUrl || song.url || song.path || song.filename;
+      if (!audioUrl) {
+        showToast("The library API did not provide an audio URL.");
+        return;
+      }
+      audio.src = audioUrl.startsWith("/") || audioUrl.startsWith("http")
+        ? audioUrl
+        : `/api/audio/${encodeURIComponent(audioUrl)}`;
+      setPlayerDetails(song);
+      audio.play().catch(() => showToast("Unable to play this file."));
+    }
+
+    function setPlayerDetails(song) {
+      $("player-title").textContent = song.title || song.name || song.filename || "Unknown title";
+      $("player-artist").textContent = song.primaryArtists || song.artist || song.singers || "Unknown artist";
+      const art = getArtwork(song) || song.artwork || "";
+      if (art) {
+        $("player-art").src = art;
+        $("player-art").classList.remove("hidden");
+        $("player-art-icon").classList.add("hidden");
+      } else {
+        $("player-art").classList.add("hidden");
+        $("player-art-icon").classList.remove("hidden");
+      }
+    }
+
+    // ------------------------------------------------------------
+    // PLAYER CONTROLS
+    // ------------------------------------------------------------
+    $("play-pause-btn").addEventListener("click", () => {
+      if (!audio.src) {
+        if (library.length) playLibrarySong(0);
+        else showToast("Search for or download a song first.");
+        return;
+      }
+      if (audio.paused) audio.play().catch(() => showToast("Playback failed."));
+      else audio.pause();
+    });
+
+    $("prev-btn").addEventListener("click", () => {
+      if (currentQueue.length) {
+        const next = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
+        if (currentQueue === library) playLibrarySong(next);
+        else playSearchPreview(currentQueue[next]);
+      }
+    });
+
+    $("next-btn").addEventListener("click", () => {
+      if (currentQueue.length) {
+        const next = (currentIndex + 1) % currentQueue.length;
+        if (currentQueue === library) playLibrarySong(next);
+        else playSearchPreview(currentQueue[next]);
+      }
+    });
+
+    audio.addEventListener("play", () => {
+      $("play-pause-icon").textContent = "pause";
+      $("play-pause-btn").title = "Pause";
+    });
+    audio.addEventListener("pause", () => {
+      $("play-pause-icon").textContent = "play_arrow";
+      $("play-pause-btn").title = "Play";
+    });
+    audio.addEventListener("timeupdate", () => {
+      $("current-time").textContent = formatTime(audio.currentTime);
+      if (audio.duration) $("seek-bar").value = (audio.currentTime / audio.duration) * 100;
+    });
+    audio.addEventListener("loadedmetadata", () => {
+      $("duration").textContent = formatTime(audio.duration);
+    });
+    audio.addEventListener("ended", () => $("next-btn").click());
+    $("seek-bar").addEventListener("input", event => {
+      if (audio.duration) audio.currentTime = (Number(event.target.value) / 100) * audio.duration;
+    });
+    $("volume-bar").addEventListener("input", event => audio.volume = Number(event.target.value));
+    audio.volume = 0.8;
+
+    $("refresh-library").addEventListener("click", loadLibrary);
+    $("home-refresh").addEventListener("click", loadLibrary);
+
+    // Initial page load.
+    loadLibrary();
+  </script>
+</body>
+</html>
